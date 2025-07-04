@@ -3,6 +3,22 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
+// Configuración para producción
+process.on('uncaughtException', (err) => {
+    console.error('Error no capturado:', err);
+    // No salir del proceso, solo logear
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Promesa rechazada no manejada:', reason);
+    // No salir del proceso, solo logear
+});
+
+// Configurar límites de memoria
+if (process.env.NODE_ENV === 'production') {
+    process.setMaxListeners(0);
+}
+
 const app = express();
 const PORT = 3000;
 
