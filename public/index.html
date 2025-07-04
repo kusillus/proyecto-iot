@@ -717,57 +717,6 @@
             `).join('');
         }
         
-        async function executeAutomaticFeeding(feedingTime) {
-            try {
-                console.log(`🔄 Iniciando dispensación automática para horario: ${feedingTime}`);
-                
-                const response = await fetch('/api/activate-servo-auto', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        feedingTime: feedingTime,
-                        automatic: true 
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    console.log(`✅ Dispensación automática exitosa: ${feedingTime}`);
-                    showAlert(`✅ Comida servida automáticamente a las ${feedingTime}`, 'success');
-                    
-                    // Actualizar UI para mostrar que se está sirviendo
-                    const button = document.getElementById('servoButton');
-                    const status = document.getElementById('commandStatus');
-                    
-                    if (button && status) {
-                        const originalText = button.textContent;
-                        const originalStatus = status.textContent;
-                        
-                        button.textContent = '🤖 Sirviendo Automáticamente...';
-                        button.disabled = true;
-                        status.textContent = `Dispensación automática - ${feedingTime}`;
-                        status.className = 'command-status status-sending';
-                        
-                        // Restaurar UI después de 5 segundos
-                        setTimeout(() => {
-                            button.textContent = originalText;
-                            button.disabled = false;
-                            status.textContent = originalStatus;
-                            status.className = 'command-status status-ready';
-                        }, 5000);
-                    }
-                    
-                } else {
-                    throw new Error(result.message || 'Error en dispensación automática');
-                }
-                
-            } catch (error) {
-                console.error('Error en dispensación automática:', error);
-                showAlert(`❌ Error en dispensación automática (${feedingTime}): ${error.message}`, 'error');
-            }
-        }
-        
         async function loadFeedingTimes() {
             try {
                 const response = await fetch('/api/feeding-config');
@@ -803,12 +752,12 @@
                         showAlert(`🚨 ¡ALERTA! Es hora de servir comida (${feedingTime}) pero no hay conexión con el ESP32. Revisa el dispositivo inmediatamente.`, 'error');
                         console.error(`⚠️ Horario de comida perdido: ${feedingTime} - Sin conexión ESP32`);
                     } else {
-                        // ACTIVAR AUTOMÁTICAMENTE EL SERVO
-                        showAlert(`🍽️ ¡Hora de comida! Sirviendo alimento automáticamente (${feedingTime})`, 'success');
-                        console.log(`🚀 Activación automática: ${feedingTime} - Sirviendo comida`);
+                        // EJECUTAR AUTOMÁTICAMENTE LA FUNCIÓN DE SERVIR COMIDA
+                        showAlert(`🍽️ ¡Hora de comida! Activando servo automáticamente (${feedingTime})`, 'success');
+                        console.log(`🤖 ACTIVACIÓN AUTOMÁTICA: ${feedingTime} - Ejecutando activateServo()`);
                         
-                        // Ejecutar dispensación automática
-                        executeAutomaticFeeding(feedingTime);
+                        // Llamar directamente a la función que ya funciona
+                        activateServo();
                     }
                 }
             }
