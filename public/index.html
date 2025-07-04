@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 IoT Dashboard - Servidor Local</title>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .online { background: #28a745; }
+        .offline { background: #dc3545; animation: none; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .sensor-card {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sensor-card:nth-child(2) {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+        }
+        
+        .sensor-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .sensor-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.5s;
+            opacity: 0;
+        }
+        
+        .sensor-card:hover::before {
+            animation: shine 0.5s ease-in-out;
+        }
+        
+        @keyframes shine {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); opacity: 0; }
+        }
+        
+        .sensor-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .sensor-value {
+            font-size: 3.5em;
+            font-weight: bold;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .sensor-label {
+            font-size: 1.3em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .sensor-unit {
+            font-size: 1.1em;
+            opacity: 0.8;
+        }
+        
+        .control-panel {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .control-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .servo-button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 18px 45px;
+            font-size: 1.3em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .servo-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.3);
+        }
+        
+        .servo-button:active {
+            transform: translateY(-1px);
+        }
+        
+        .servo-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .command-status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .time-config {
+            margin: 20px 0;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .time-config label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .time-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        
+        .time-config input[type="time"] {
+            padding: 10px;
+            font-size: 1.2em;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            flex: 1;
+            max-width: 200px;
+        }
+        
+        .add-time-btn {
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            background: #28a745;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .add-time-btn:hover {
+            background: #218838;
+        }
+        
+        .feeding-times-list {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .feeding-times-list h4 {
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .times-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .time-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .time-item .time-text {
+            font-size: 1.1em;
+        }
+        
+        .delete-time-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-size: 0.8em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+        
+        .delete-time-btn:hover {
+            background: #c82333;
+        }
+        
+        .no-times {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .time-info {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+            word-wrap: break-word;
+        }
+        
+        .alert-error {
+            background: #dc3545;
+        }
+        
+        .alert-success {
+            background: #28a745;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .status-ready { background: #d4edda; color: #155724; }
+        .status-sending { background: #fff3cd; color: #856404; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        
+        .data-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+        }
+        
+        .info-item {
+            text-align: center;
+        }
+        
+        .info-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 20px; }
+            h1 { font-size: 2em; }
+            .sensor-value { font-size: 2.8em; }
+            .status-bar { flex-direction: column; gap: 10px; }
+            .servo-button { padding: 15px 35px; font-size: 1.1em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 ESP32 IoT Dashboard</h1>
+        
+        <div class="status-bar">
+            <div class="connection-status">
+                <div class="status-indicator offline" id="connectionStatus"></div>
+                <span id="connectionText">Conectando...</span>
+            </div>
+            <div id="lastUpdate">Última actualización: --</div>
+        </div>
+        
+        <div class="sensor-grid">
+            <div class="sensor-card">
+                <div class="sensor-icon">🌡️</div>
+                <div class="sensor-label">Temperatura</div>
+                <div class="sensor-value" id="temperature">--</div>
+                <div class="sensor-unit">°C</div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-icon">💧</div>
+                <div class="sensor-label">Humedad</div>
+                <div class="sensor-value" id="humidity">--</div>
+                <div class="sensor-unit">%</div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h3 class="control-title">Control del Servomotor</h3>
+            
+            <div class="time-config">
+                <label for="feedingTime">⏰ Agregar Hora de Comida (Hora Perú GMT-5):</label>
+                <div class="time-input-group">
+                    <input type="time" id="feedingTime">
+                    <button type="button" class="add-time-btn" onclick="addFeedingTime()">➕ Agregar</button>
+                </div>
+                <div class="time-info">
+                    <span id="nextFeedingInfo">Próxima comida: --</span>
+                </div>
+            </div>
+            
+            <div class="feeding-times-list">
+                <h4>📅 Horarios Configurados:</h4>
+                <div id="feedingTimesList" class="times-container">
+                    <div class="no-times">No hay horarios configurados</div>
+                </div>
+            </div>
+            
+            <button class="servo-button" id="servoButton" onclick="activateServo()">
+                🍽️ Servir Comida
+            </button>
+            <div id="commandStatus" class="command-status status-ready">
+                Sistema Listo - Esperando Comandos
+            </div>
+        </div>
+        
+        <div class="data-info">
+            <div class="info-item">
+                <div class="info-label">Dispositivo</div>
+                <div class="info-value" id="deviceId">--</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Estado de Conexión</div>
+                <div class="info-value" id="connectionInfo">--</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Servidor</div>
+                <div class="info-value">Servidor Local (Puerto 3000)</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isServoActive = false;
+        let lastDataTimestamp = 0;
+        let checkedFeedingTimes = new Set(); // Para evitar múltiples alertas de la misma hora
+
+        async function updateSensorData() {
+            try {
+                const response = await fetch('/api/current-data');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Actualizar valores de sensores
+                    document.getElementById('temperature').textContent = data.temperature.toFixed(1);
+                    document.getElementById('humidity').textContent = data.humidity.toFixed(1);
+                    document.getElementById('deviceId').textContent = data.device_id;
+                    document.getElementById('lastUpdate').textContent = `Última actualización: ${data.lastUpdate}`;
+                    
+                    // Actualizar estado de conexión
+                    const statusIndicator = document.getElementById('connectionStatus');
+                    const connectionText = document.getElementById('connectionText');
+                    const connectionInfo = document.getElementById('connectionInfo');
+                    
+                    if (data.isOnline) {
+                        statusIndicator.className = 'status-indicator online';
+                        connectionText.textContent = 'ESP32 Conectado';
+                        connectionInfo.textContent = 'En Línea';
+                    } else {
+                        statusIndicator.className = 'status-indicator offline';
+                        connectionText.textContent = 'ESP32 Desconectado';
+                        connectionInfo.textContent = 'Fuera de Línea';
+                    }
+                    
+                    lastDataTimestamp = data.timestamp;
+                } else {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                
+            } catch (error) {
+                console.error('Error obteniendo datos:', error);
+                
+                document.getElementById('temperature').textContent = '--';
+                document.getElementById('humidity').textContent = '--';
+                document.getElementById('connectionStatus').className = 'status-indicator offline';
+                document.getElementById('connectionText').textContent = 'Error de Conexión';
+                document.getElementById('connectionInfo').textContent = 'Error';
+            }
+        }
+
+        async function activateServo() {
+            if (isServoActive) return;
+            
+            // Verificar conexión ESP32 antes de servir comida
+            if (!checkESP32Connection()) {
+                showAlert('❌ No estás conectado al ESP32 o no se ha podido servir la comida. Revisa la conexión.', 'error');
+                return;
+            }
+            
+            isServoActive = true;
+            const button = document.getElementById('servoButton');
+            const status = document.getElementById('commandStatus');
+            
+            // Actualizar UI
+            button.textContent = '⏳ Enviando Comando...';
+            button.disabled = true;
+            status.textContent = 'Enviando comando al ESP32...';
+            status.className = 'command-status status-sending';
+            
+            try {
+                const response = await fetch('/api/activate-servo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    status.textContent = 'Comando enviado - Esperando ejecución...';
+                    showAlert('✅ Comando enviado correctamente al ESP32', 'success');
+                    
+                    // Simular tiempo de ejecución del servo
+                    setTimeout(() => {
+                        button.textContent = '🍽️ Servir Comida';
+                        button.disabled = false;
+                        status.textContent = 'Sistema Listo - Comando Ejecutado';
+                        status.className = 'command-status status-ready';
+                        isServoActive = false;
+                    }, 4000);
+                    
+                } else {
+                    throw new Error(result.message || 'Error del servidor');
+                }
+                
+            } catch (error) {
+                console.error('Error activando servo:', error);
+                
+                button.textContent = '❌ Error';
+                status.textContent = 'Error enviando comando';
+                status.className = 'command-status status-error';
+                
+                showAlert('❌ Error al comunicarse con el ESP32. Revisa la conexión.', 'error');
+                
+                setTimeout(() => {
+                    button.textContent = '🍽️ Servir Comida';
+                    button.disabled = false;
+                    status.textContent = 'Sistema Listo - Esperando Comandos';
+                    status.className = 'command-status status-ready';
+                    isServoActive = false;
+                }, 3000);
+            }
+        }
+        
+        function checkESP32Connection() {
+            const timeDiff = Date.now() - lastDataTimestamp;
+            return timeDiff < 15000; // Considera conectado si los datos son de menos de 15 segundos
+        }
+        
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            document.body.appendChild(alert);
+            
+            // Para alertas de horario de comida, mantener más tiempo visible
+            const duration = message.includes('Es hora de servir comida') ? 10000 : 5000;
+            
+            setTimeout(() => {
+                alert.remove();
+            }, duration);
+        }
+        
+        async function addFeedingTime() {
+            const timeInput = document.getElementById('feedingTime');
+            const time = timeInput.value;
+            
+            if (!time) {
+                showAlert('❌ Por favor selecciona una hora', 'error');
+                return;
+            }
+            
+            // Validar que la hora sea para el día actual (no pasada)
+            const now = new Date();
+            const peruTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Lima"}));
+            const currentTime = peruTime.getHours() * 60 + peruTime.getMinutes();
+            
+            const [hours, minutes] = time.split(':').map(Number);
+            const selectedMinutes = hours * 60 + minutes;
+            
+            if (selectedMinutes <= currentTime) {
+                showAlert('❌ No puedes programar horarios para horas que ya pasaron. Solo se permite programar para más tarde en el día actual.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/add-feeding-time', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedingTime: time })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('✅ Horario de comida agregado correctamente', 'success');
+                    timeInput.value = ''; // Limpiar input
+                    loadFeedingTimes(); // Recargar lista
+                } else {
+                    throw new Error(result.message || 'Error agregando horario');
+                }
+                
+            } catch (error) {
+                console.error('Error agregando horario:', error);
+                showAlert(`❌ ${error.message}`, 'error');
+            }
+        }
+        
+        async function removeFeedingTime(time) {
+            try {
+                const response = await fetch('/api/remove-feeding-time', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedingTime: time })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('✅ Horario eliminado correctamente', 'success');
+                    loadFeedingTimes(); // Recargar lista
+                } else {
+                    throw new Error(result.message || 'Error eliminando horario');
+                }
+                
+            } catch (error) {
+                console.error('Error eliminando horario:', error);
+                showAlert(`❌ ${error.message}`, 'error');
+            }
+        }
+        
+        function updateNextFeedingInfo(feedingTimes) {
+            if (!feedingTimes || feedingTimes.length === 0) {
+                document.getElementById('nextFeedingInfo').textContent = 'No hay horarios configurados';
+                return;
+            }
+            
+            // Obtener fecha y hora actual en zona horaria peruana usando Date nativo
+            const now = new Date();
+            const peruTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Lima"}));
+            const currentTime = peruTime.getHours() * 60 + peruTime.getMinutes();
+            
+            let nextFeeding = null;
+            let nextFeedingTime = null;
+            
+            // Buscar la próxima comida de hoy
+            for (const time of feedingTimes) {
+                const [hours, minutes] = time.split(':').map(Number);
+                const feedingMinutes = hours * 60 + minutes;
+                
+                if (feedingMinutes > currentTime) {
+                    // Crear fecha para hoy en hora peruana
+                    const today = new Date(peruTime);
+                    today.setHours(hours, minutes, 0, 0);
+                    
+                    if (!nextFeeding || today < nextFeeding) {
+                        nextFeeding = today;
+                        nextFeedingTime = time;
+                    }
+                }
+            }
+            
+            // Si no hay comida hoy, buscar la primera de mañana
+            if (!nextFeeding) {
+                const tomorrow = new Date(peruTime);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                // Tomar la primera comida del día (ya están ordenadas)
+                const firstTime = feedingTimes[0];
+                const [hours, minutes] = firstTime.split(':').map(Number);
+                tomorrow.setHours(hours, minutes, 0, 0);
+                
+                nextFeeding = tomorrow;
+                nextFeedingTime = firstTime;
+            }
+            
+            document.getElementById('nextFeedingInfo').textContent = 
+                `Próxima comida: ${nextFeeding.toLocaleString('es-PE', { 
+                    timeZone: 'America/Lima',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })} (Hora Perú)`;
+        }
+        
+        function renderFeedingTimes(feedingTimes) {
+            const container = document.getElementById('feedingTimesList');
+            
+            if (!feedingTimes || feedingTimes.length === 0) {
+                container.innerHTML = '<div class="no-times">No hay horarios configurados</div>';
+                return;
+            }
+            
+            container.innerHTML = feedingTimes.map(time => `
+                <div class="time-item">
+                    <span class="time-text">${time}</span>
+                    <button class="delete-time-btn" onclick="removeFeedingTime('${time}')" title="Eliminar horario">
+                        ✕
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        async function loadFeedingTimes() {
+            try {
+                const response = await fetch('/api/feeding-config');
+                const config = await response.json();
+                
+                if (response.ok) {
+                    const feedingTimes = config.feedingTimes || [];
+                    renderFeedingTimes(feedingTimes);
+                    updateNextFeedingInfo(feedingTimes);
+                    checkScheduledFeedings(feedingTimes);
+                }
+            } catch (error) {
+                console.error('Error cargando configuración:', error);
+            }
+        }
+        
+        function checkScheduledFeedings(feedingTimes) {
+            if (!feedingTimes || feedingTimes.length === 0) return;
+            
+            const now = new Date();
+            const peruTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Lima"}));
+            const currentHour = peruTime.getHours();
+            const currentMinute = peruTime.getMinutes();
+            const currentTimeKey = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+            
+            // Verificar si alguna hora programada coincide con la hora actual
+            for (const feedingTime of feedingTimes) {
+                if (feedingTime === currentTimeKey && !checkedFeedingTimes.has(feedingTime)) {
+                    checkedFeedingTimes.add(feedingTime);
+                    
+                    // Verificar si hay conexión con ESP32
+                    if (!checkESP32Connection()) {
+                        showAlert(`🚨 ¡ALERTA! Es hora de servir comida (${feedingTime}) pero no hay conexión con el ESP32. Revisa el dispositivo inmediatamente.`, 'error');
+                        console.error(`⚠️ Horario de comida perdido: ${feedingTime} - Sin conexión ESP32`);
+                    } else {
+                        showAlert(`✅ Hora de comida programada (${feedingTime}) - ESP32 conectado`, 'success');
+                        console.log(`✅ Horario de comida activo: ${feedingTime} - ESP32 conectado`);
+                    }
+                }
+            }
+            
+            // Limpiar horarios ya verificados que no son de la hora actual
+            const currentMinutes = currentHour * 60 + currentMinute;
+            checkedFeedingTimes.forEach(time => {
+                const [hours, minutes] = time.split(':').map(Number);
+                const timeMinutes = hours * 60 + minutes;
+                if (Math.abs(timeMinutes - currentMinutes) > 1) {
+                    checkedFeedingTimes.delete(time);
+                }
+            });
+        }
+
+        // Actualizar datos cada 3 segundos
+        setInterval(updateSensorData, 3000);
+        
+        // Verificar horarios programados cada minuto
+        setInterval(() => {
+            loadFeedingTimes();
+        }, 60000);
+        
+        // Carga inicial
+        updateSensorData();
+        loadFeedingTimes();
+        
+        console.log('🚀 Dashboard IoT cargado correctamente');
+        console.log('📡 Conectando con ESP32...');
+    </script>
+</body>
+</html>
