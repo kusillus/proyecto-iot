@@ -151,6 +151,44 @@ app.post('/api/activate-servo', (req, res) => {
     }
 });
 
+// Endpoint para activar servo automáticamente por horario
+app.post('/api/activate-servo-auto', (req, res) => {
+    try {
+        const { feedingTime, automatic } = req.body;
+        
+        commandQueue.servo_activate = true;
+        
+        const peruTime = getPeruTime().toLocaleString('es-PE', { 
+            timeZone: 'America/Lima',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        console.log(`🤖 DISPENSACIÓN AUTOMÁTICA activada`);
+        console.log(`   ⏰ Horario programado: ${feedingTime}`);
+        console.log(`   🕐 Hora actual (Perú): ${peruTime}`);
+        console.log(`   🎯 Comando enviado al ESP32`);
+        
+        res.json({
+            status: 'success',
+            message: `Dispensación automática ejecutada para horario ${feedingTime}`,
+            feedingTime: feedingTime,
+            automatic: true,
+            timestamp: peruTime
+        });
+        
+    } catch (error) {
+        console.error('Error en dispensación automática:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Error interno del servidor'
+        });
+    }
+});
+
 // Endpoint para obtener historial de datos
 app.get('/api/history', (req, res) => {
     try {
@@ -342,6 +380,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`   POST /api/command-executed - Confirmar ejecución`);
     console.log(`   GET  /api/current-data - Datos actuales para interfaz web`);
     console.log(`   POST /api/activate-servo - Activar servo desde web`);
+    console.log(`   POST /api/activate-servo-auto - Activar servo automáticamente`);
     console.log(`   GET  /api/history - Historial de datos`);
     console.log(`   POST /api/add-feeding-time - Agregar horario de comida`);
     console.log(`   DELETE /api/remove-feeding-time - Eliminar horario de comida`);
