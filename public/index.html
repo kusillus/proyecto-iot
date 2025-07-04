@@ -752,12 +752,19 @@
                         showAlert(`🚨 ¡ALERTA! Es hora de servir comida (${feedingTime}) pero no hay conexión con el ESP32. Revisa el dispositivo inmediatamente.`, 'error');
                         console.error(`⚠️ Horario de comida perdido: ${feedingTime} - Sin conexión ESP32`);
                     } else {
-                        // EJECUTAR AUTOMÁTICAMENTE LA FUNCIÓN DE SERVIR COMIDA
+                        // SIMULAR CLIC DEL BOTÓN DE SERVIR COMIDA
                         showAlert(`🍽️ ¡Hora de comida! Activando servo automáticamente (${feedingTime})`, 'success');
-                        console.log(`🤖 ACTIVACIÓN AUTOMÁTICA: ${feedingTime} - Ejecutando activateServo()`);
+                        console.log(`🤖 ACTIVACIÓN AUTOMÁTICA: ${feedingTime} - Simulando clic del botón`);
                         
-                        // Llamar directamente a la función que ya funciona
-                        activateServo();
+                        // Obtener el botón y hacer clic programáticamente
+                        const servoButton = document.getElementById('servoButton');
+                        if (servoButton && !servoButton.disabled) {
+                            console.log(`🔘 Ejecutando click() en el botón de servir comida`);
+                            servoButton.click();
+                        } else {
+                            console.log(`❌ Botón no disponible o deshabilitado`);
+                            showAlert(`❌ No se pudo activar: botón no disponible`, 'error');
+                        }
                     }
                 }
             }
